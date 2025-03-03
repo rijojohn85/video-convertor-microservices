@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, UUID4
+from pydantic import BaseModel, Field
 
 
 class UserCreateSchema(BaseModel):
@@ -7,5 +7,5 @@ class UserCreateSchema(BaseModel):
 
 
 class UserInDBSchema(BaseModel):
-    id: UUID4
+    id: str
     username: str

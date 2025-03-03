@@ -3,6 +3,9 @@ from uuid import UUID
 from typing import Dict
 from pydantic import ValidationError
 from fastapi.testclient import TestClient
+from unittest.mock import patch
+from src.main import api_version
+from fastapi import status
 
 
 from src.schemas import UserCreateSchema, UserInDBSchema
@@ -45,7 +48,7 @@ def test_unit_schema_user_indb_validation() -> None:
     checks that the schema used to return data for user creation is correct
     """
     valid_data = {
-        "id": UUID("4fe4714f-c85f-40ec-8d85-0f023d2ad468"),
+        "id": "4fe4714f-c85f-40ec-8d85-0f023d2ad468",
         "username": "rijojohn",
     }
     user = UserInDBSchema(**valid_data)
@@ -55,7 +58,7 @@ def test_unit_schema_user_indb_validation() -> None:
 
     invalid_data_array = [
         {"username": "rijojohn"},
-        {"id": UUID("4fe4714f-c85f-40ec-8d85-0f023d2ad468")},
+        {"id": "4fe4714f-c85f-40ec-8d85-0f023d2ad468"},
         {"abc": "abc"},
     ]
     for data in invalid_data_array:
@@ -67,15 +70,33 @@ def mock_output(return_value=None):
     return lambda *args, **kwargs: return_value
 
 
-def test_unit_create_user_route(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unit_create_user_route(client: TestClient) -> None:
     valid_return_data = {
-        "id": UUID("4fe4714f-c85f-40ec-8d85-0f023d2ad468"),
+        "id": "4fe4714f-c85f-40ec-8d85-0f023d2ad468",
         "username": "rijojohn",
     }
 
-    def mock_user_create_service(user_payload: UserCreateSchema) -> UserInDBSchema:
-        return UserInDBSchema(**valid_return_data)
+    valid_input_data = {
+        "username": "rijojohn",
+        "password": "rijojohn85",
+    }
 
-    user = UserCreateSchema(username="rijojohn", password="rijojohn85")
+    with patch(
+        "src.services.user_create_service",
+        return_value=UserInDBSchema(**valid_return_data),
+    ):
+        response = client.post(f"/api/{api_version}/users", json=valid_input_data)
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.json() == valid_return_data
+
+
+def test_unit_create_user_invalid_data(client: TestClient) -> None:
+    invalid_data_list = [
+        {"username": "rijojohn"},
+        {"password": "rijojohn85"},
+        {"abc": "xyz"},
+    ]
+    for data in invalid_data_list:
+        response = client.post(f"/api/{api_version}/users", json=data)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

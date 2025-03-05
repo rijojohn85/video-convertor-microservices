@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 from src.main import api_version
 from fastapi import status
+from src.services import user_create_service, check_existing_user
 
 
 from src.schemas import UserCreateSchema, UserInDBSchema
@@ -82,8 +83,8 @@ def test_unit_create_user_route(client: TestClient) -> None:
     }
 
     with patch(
-        "src.services.user_create_service",
-        return_value=UserInDBSchema(**valid_return_data),
+        "src.routes.user_create_service",
+        return_value=valid_return_data,
     ):
         response = client.post(f"/api/{api_version}/users", json=valid_input_data)
 
@@ -100,3 +101,22 @@ def test_unit_create_user_invalid_data(client: TestClient) -> None:
     for data in invalid_data_list:
         response = client.post(f"/api/{api_version}/users", json=data)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_unit_create_user_service_success(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    valid_input_data = {
+        "username": "rijojohn",
+        "password": "rijojohn85",
+    }
+
+    def mock_check_existing_user(_db, _username):
+        return False
+
+    monkeypatch.setattr("src.service.check_existing_user", mock_check_existing_user)
+    monkeypatch.setattr("sqlalchemy.orm.Session.add", mock_output)
+    monkeypatch.setattr("sqlalchemy.orm.Session.commit", mock_output)
+    monkeypatch.setattr("sqlalchemy.orm.Session.refresh", mock_output)
+
+    response = user_create_service()
